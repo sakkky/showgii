@@ -2,63 +2,188 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>宝ゲーム</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>おたからキャッチ！</title>
+<style>
+  body {
+    display: flex; flex-direction: column; align-items: center;
+    font-family: 'Helvetica Rounded', 'Arial Rounded MT Bold', sans-serif;
+    background-color: #E0F7FA; margin: 0; padding: 20px 0; touch-action: manipulation;
+  }
+  h2 { color: #006064; margin-bottom: 10px; }
+  #message { font-size: 18px; font-weight: bold; color: #E64A19; height: 24px; margin-bottom: 15px; }
+  
+  #board {
+    display: grid; grid-template-columns: repeat(5, 60px); grid-template-rows: repeat(5, 60px); gap: 4px;
+    background-color: #8D6E63; padding: 8px; border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+  
+  .cell {
+    background-color: #FFE082; border-radius: 4px;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 32px; cursor: pointer; transition: all 0.2s;
+    user-select: none;
+  }
+  
+  /* タップしたときの装飾 */
+  .cell.selected { background-color: #FFCDD2; transform: scale(1.1); box-shadow: 0 0 10px #F44336; z-index: 10; }
+  .cell.highlight { background-color: #B2EBF2; border: 2px solid #00BCD4; box-sizing: border-box; }
+  .cell.treasure { background-color: #FFECB3; }
+
+  button {
+    margin-top: 30px; padding: 12px 24px; font-size: 16px; font-weight: bold;
+    color: white; background-color: #00ACC1; border: none; border-radius: 20px;
+    box-shadow: 0 4px 0 #00838F; cursor: pointer; transition: 0.1s;
+  }
+  button:active { transform: translateY(4px); box-shadow: none; }
+</style>
 </head>
 <body>
-<h2>宝囲みゲーム</h2>
+
+<h2>おたからキャッチ！</h2>
+<div id="message">動かすコマをえらんでね</div>
 <div id="board"></div>
+<button onclick="resetGame()">最初からやりなおす</button>
 
 <script>
 const size = 5;
 const board = document.getElementById("board");
-let selected = null;
+const messageBox = document.getElementById("message");
 
-let pieces = [
-  {x:0,y:0,type:"→"},
-  {x:4,y:0,type:"↓"},
-  {x:0,y:4,type:"↘"},
-  {x:4,y:4,type:"→"}
-];
+// 宝は真ん中に固定（端にいくと4つで囲めなくなるため）
+const treasure = {x: 2, y: 2, symbol: "💎"};
 
-let treasure = {x:2,y:2};
+let pieces = [];
+let selectedPiece = null;
 
-function draw(){
-  board.innerHTML="";
-  board.style.display="grid";
-  board.style.gridTemplateColumns="repeat(5,60px)";
+// ゲームの初期化
+function resetGame() {
+  pieces = [
+    {id: 1, x: 0, y: 0, type: "↕️"}, // タテ丸
+    {id: 2, x: 4, y: 0, type: "↔️"}, // ヨコ丸
+    {id: 3, x: 0, y: 4, type: "✖️"}, // ナナメ丸
+    {id: 4, x: 4, y: 4, type: "⭐️"}  // 王様丸（1歩だけ自由）
+  ];
+  selectedPiece = null;
+  messageBox.innerText = "動かすコマをえらんでね";
+  messageBox.style.color = "#E64A19";
+  draw();
+}
 
-  for(let y=0;y<size;y++){
-    for(let x=0;x<size;x++){
+// 盤面の描画
+function draw() {
+  board.innerHTML = "";
+  
+  for(let y = 0; y < size; y++) {
+    for(let x = 0; x < size; x++) {
       const cell = document.createElement("div");
-      cell.style.border="1px solid #000";
-      cell.style.height="60px";
+      cell.className = "cell";
+      
+      // 宝の配置
+      if(x === treasure.x && y === treasure.y) {
+        cell.innerText = treasure.symbol;
+        cell.classList.add("treasure");
+      }
 
-      let p = pieces.find(p=>p.x===x && p.y===y);
-      if(p) cell.innerText = p.type;
+      // コマの配置
+      let p = pieces.find(p => p.x === x && p.y === y);
+      if(p) {
+        cell.innerText = p.type;
+        if(selectedPiece === p) cell.classList.add("selected");
+      }
 
-      cell.onclick = ()=>clickCell(x,y);
+      // 移動可能なマスのハイライト
+      if(selectedPiece && !p && (x !== treasure.x || y !== treasure.y)) {
+        if(isValidMove(selectedPiece, x, y)) {
+          cell.classList.add("highlight");
+        }
+      }
+
+      cell.onclick = () => clickCell(x, y);
       board.appendChild(cell);
     }
   }
 }
 
-function clickCell(x,y){
-  let p = pieces.find(p=>p.x===x && p.y===y);
+// 移動ルールの判定
+function isValidMove(p, tx, ty) {
+  // 動かない、または他のコマ・宝がある場所には移動不可
+  if(p.x === tx && p.y === ty) return false;
+  if(tx === treasure.x && ty === treasure.y) return false;
+  if(pieces.some(other => other.x === tx && other.y === ty)) return false;
 
-  if(p){
-    selected = p;
+  let dx = Math.sign(tx - p.x);
+  let dy = Math.sign(ty - p.y);
+
+  // コマごとの方向制限
+  if(p.type === "↕️" && p.x !== tx) return false;
+  if(p.type === "↔️" && p.y !== ty) return false;
+  if(p.type === "✖️" && Math.abs(p.x - tx) !== Math.abs(p.y - ty)) return false;
+  if(p.type === "⭐️" && (Math.abs(p.x - tx) > 1 || Math.abs(p.y - ty) > 1)) return false;
+
+  // コマを飛び越えられないルール（⭐️以外）
+  if (p.type !== "⭐️") {
+    let cx = p.x + dx;
+    let cy = p.y + dy;
+    while(cx !== tx || cy !== ty) {
+      if(cx === treasure.x && cy === treasure.y) return false;
+      if(pieces.some(other => other.x === cx && other.y === cy)) return false;
+      cx += dx;
+      cy += dy;
+    }
+  }
+  return true;
+}
+
+// マスをタップした時の処理
+function clickCell(x, y) {
+  let p = pieces.find(p => p.x === x && p.y === y);
+
+  // 自分のコマをタップしたら選択
+  if(p) {
+    selectedPiece = (selectedPiece === p) ? null : p; // 同じコマをタップでキャンセル
+    draw();
     return;
   }
 
-  if(selected){
-    selected.x = x;
-    selected.y = y;
-    selected = null;
-    draw();
+  // 空きマスをタップした時、選択中のコマがあれば移動
+  if(selectedPiece) {
+    if(isValidMove(selectedPiece, x, y)) {
+      selectedPiece.x = x;
+      selectedPiece.y = y;
+      selectedPiece = null;
+      draw();
+      checkWin();
+    }
   }
 }
 
-draw();
+// クリア判定（上下左右にコマがあるか）
+function checkWin() {
+  const t = treasure;
+  // 宝の上下左右の座標
+  const requiredSpots = [
+    {x: t.x, y: t.y - 1}, // 上
+    {x: t.x, y: t.y + 1}, // 下
+    {x: t.x - 1, y: t.y}, // 左
+    {x: t.x + 1, y: t.y}  // 右
+  ];
+
+  // 全ての場所に何かしらのコマがいればクリア
+  const isSurrounded = requiredSpots.every(spot => 
+    pieces.some(p => p.x === spot.x && p.y === spot.y)
+  );
+
+  if(isSurrounded) {
+    messageBox.innerText = "🎉クリア！おたからゲット！🎉";
+    messageBox.style.color = "#D32F2F";
+  }
+}
+
+// 起動時に実行
+resetGame();
 </script>
+
 </body>
 </html>
