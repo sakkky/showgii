@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>宝囲みゲーム</title>
+<style>
+body { font-family: sans-serif; text-align: center; }
+#board { display: grid; grid-template-columns: repeat(5, 60px); gap: 5px; margin: 20px auto; width: max-content;}
+.cell { width: 60px; height: 60px; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.selected { background: #aaf; }
+</style>
+</head>
+<body>
+
+<h2>宝囲みゲーム</h2>
+<p id="info">コマを選んで移動</p>
+<div id="board"></div>
+
+<script>
+const size = 5;
+let board = [];
+let selected = null;
+
+// 駒（4つ）
+let pieces = [
+  {x:0,y:0,type:"→"},
+  {x:4,y:0,type:"↓"},
+  {x:0,y:4,type:"↘"},
+  {x:4,y:4,type:"→"}
+];
+
+// 宝（見えない）
+let treasure = {x: Math.floor(Math.random()*5), y: Math.floor(Math.random()*5)};
+
+function init(){
+  board = [];
+  for(let y=0;y<size;y++){
+    let row=[];
+    for(let x=0;x<size;x++){
+      row.push("");
+    }
+    board.push(row);
+  }
+}
+
+function draw(){
+  const el = document.getElementById("board");
+  el.innerHTML = "";
+
+  for(let y=0;y<size;y++){
+    for(let x=0;x<size;x++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+
+      let piece = pieces.find(p=>p.x===x && p.y===y);
+      if(piece){
+        cell.textContent = piece.type;
+      }
+
+      if(selected && selected.x===x && selected.y===y){
+        cell.classList.add("selected");
+      }
+
+      cell.onclick = ()=>clickCell(x,y);
+      el.appendChild(cell);
+    }
+  }
+}
+
+function clickCell(x,y){
+  let piece = pieces.find(p=>p.x===x && p.y===y);
+
+  if(piece){
+    selected = piece;
+  } else if(selected){
+    if(canMove(selected,x,y)){
+      selected.x = x;
+      selected.y = y;
+
+      moveTreasure();
+      checkWin();
+    }
+    selected = null;
+  }
+  draw();
+}
+
+function canMove(piece,x,y){
+  if(piece.type==="→") return piece.y===y;
+  if(piece.type==="↓") return piece.x===x;
+  if(piece.type==="↘") return Math.abs(piece.x-x)===Math.abs(piece.y-y);
+  return false;
+}
+
+function moveTreasure(){
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  let d = dirs[Math.floor(Math.random()*dirs.length)];
+  let nx = treasure.x + d[0];
+  let ny = treasure.y + d[1];
+  if(nx>=0 && nx<5 && ny>=0 && ny<5){
+    treasure.x = nx;
+    treasure.y = ny;
+  }
+}
+
+function checkWin(){
+  let around = [
+    [treasure.x+1, treasure.y],
+    [treasure.x-1, treasure.y],
+    [treasure.x, treasure.y+1],
+    [treasure.x, treasure.y-1]
+  ];
+
+  let count = 0;
+  around.forEach(pos=>{
+    if(pieces.find(p=>p.x===pos[0] && p.y===pos[1])){
+      count++;
+    }
+  });
+
+  if(count>=4){
+    alert("クリア！");
+    init();
+  }
+}
+
+init();
+draw();
+</script>
+
+</body>
+</html>
