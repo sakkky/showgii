@@ -26,7 +26,6 @@
     user-select: none;
   }
   
-  /* タップしたときの装飾 */
   .cell.selected { background-color: #FFCDD2; transform: scale(1.1); box-shadow: 0 0 10px #F44336; z-index: 10; }
   .cell.highlight { background-color: #B2EBF2; border: 2px solid #00BCD4; box-sizing: border-box; }
   .cell.treasure { background-color: #FFECB3; }
@@ -51,19 +50,18 @@ const size = 5;
 const board = document.getElementById("board");
 const messageBox = document.getElementById("message");
 
-// 宝は真ん中に固定（端にいくと4つで囲めなくなるため）
 const treasure = {x: 2, y: 2, symbol: "💎"};
 
 let pieces = [];
 let selectedPiece = null;
 
-// ゲームの初期化
 function resetGame() {
+  // コマの種類を「飛車(➕)」「角(✖️)」「王(⭐️)」の組み合わせに変更！
   pieces = [
-    {id: 1, x: 0, y: 0, type: "↕️"}, // タテ丸
-    {id: 2, x: 4, y: 0, type: "↔️"}, // ヨコ丸
-    {id: 3, x: 0, y: 4, type: "✖️"}, // ナナメ丸
-    {id: 4, x: 4, y: 4, type: "⭐️"}  // 王様丸（1歩だけ自由）
+    {id: 1, x: 0, y: 0, type: "➕"}, // タテヨコ丸（縦横どこでも）
+    {id: 2, x: 4, y: 0, type: "➕"}, // タテヨコ丸（縦横どこでも）
+    {id: 3, x: 0, y: 4, type: "✖️"}, // ナナメ丸（斜めどこでも）
+    {id: 4, x: 4, y: 4, type: "⭐️"}  // 王様丸（周り1マスどこでも）
   ];
   selectedPiece = null;
   messageBox.innerText = "動かすコマをえらんでね";
@@ -71,7 +69,6 @@ function resetGame() {
   draw();
 }
 
-// 盤面の描画
 function draw() {
   board.innerHTML = "";
   
@@ -80,20 +77,17 @@ function draw() {
       const cell = document.createElement("div");
       cell.className = "cell";
       
-      // 宝の配置
       if(x === treasure.x && y === treasure.y) {
         cell.innerText = treasure.symbol;
         cell.classList.add("treasure");
       }
 
-      // コマの配置
       let p = pieces.find(p => p.x === x && p.y === y);
       if(p) {
         cell.innerText = p.type;
         if(selectedPiece === p) cell.classList.add("selected");
       }
 
-      // 移動可能なマスのハイライト
       if(selectedPiece && !p && (x !== treasure.x || y !== treasure.y)) {
         if(isValidMove(selectedPiece, x, y)) {
           cell.classList.add("highlight");
@@ -106,9 +100,7 @@ function draw() {
   }
 }
 
-// 移動ルールの判定
 function isValidMove(p, tx, ty) {
-  // 動かない、または他のコマ・宝がある場所には移動不可
   if(p.x === tx && p.y === ty) return false;
   if(tx === treasure.x && ty === treasure.y) return false;
   if(pieces.some(other => other.x === tx && other.y === ty)) return false;
@@ -116,13 +108,11 @@ function isValidMove(p, tx, ty) {
   let dx = Math.sign(tx - p.x);
   let dy = Math.sign(ty - p.y);
 
-  // コマごとの方向制限
-  if(p.type === "↕️" && p.x !== tx) return false;
-  if(p.type === "↔️" && p.y !== ty) return false;
-  if(p.type === "✖️" && Math.abs(p.x - tx) !== Math.abs(p.y - ty)) return false;
-  if(p.type === "⭐️" && (Math.abs(p.x - tx) > 1 || Math.abs(p.y - ty) > 1)) return false;
+  // 新しい移動ルール
+  if(p.type === "➕" && p.x !== tx && p.y !== ty) return false; // 十字のみ
+  if(p.type === "✖️" && Math.abs(p.x - tx) !== Math.abs(p.y - ty)) return false; // 斜めのみ
+  if(p.type === "⭐️" && (Math.abs(p.x - tx) > 1 || Math.abs(p.y - ty) > 1)) return false; // 1歩のみ
 
-  // コマを飛び越えられないルール（⭐️以外）
   if (p.type !== "⭐️") {
     let cx = p.x + dx;
     let cy = p.y + dy;
@@ -136,18 +126,15 @@ function isValidMove(p, tx, ty) {
   return true;
 }
 
-// マスをタップした時の処理
 function clickCell(x, y) {
   let p = pieces.find(p => p.x === x && p.y === y);
 
-  // 自分のコマをタップしたら選択
   if(p) {
-    selectedPiece = (selectedPiece === p) ? null : p; // 同じコマをタップでキャンセル
+    selectedPiece = (selectedPiece === p) ? null : p;
     draw();
     return;
   }
 
-  // 空きマスをタップした時、選択中のコマがあれば移動
   if(selectedPiece) {
     if(isValidMove(selectedPiece, x, y)) {
       selectedPiece.x = x;
@@ -159,18 +146,15 @@ function clickCell(x, y) {
   }
 }
 
-// クリア判定（上下左右にコマがあるか）
 function checkWin() {
   const t = treasure;
-  // 宝の上下左右の座標
   const requiredSpots = [
-    {x: t.x, y: t.y - 1}, // 上
-    {x: t.x, y: t.y + 1}, // 下
-    {x: t.x - 1, y: t.y}, // 左
-    {x: t.x + 1, y: t.y}  // 右
+    {x: t.x, y: t.y - 1},
+    {x: t.x, y: t.y + 1},
+    {x: t.x - 1, y: t.y},
+    {x: t.x + 1, y: t.y} 
   ];
 
-  // 全ての場所に何かしらのコマがいればクリア
   const isSurrounded = requiredSpots.every(spot => 
     pieces.some(p => p.x === spot.x && p.y === spot.y)
   );
@@ -181,7 +165,6 @@ function checkWin() {
   }
 }
 
-// 起動時に実行
 resetGame();
 </script>
 
